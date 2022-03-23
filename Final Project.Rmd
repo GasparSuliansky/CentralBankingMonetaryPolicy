@@ -1,0 +1,261 @@
+---
+title: <center> Final Project -- Hyperinflation </center>
+author: <center> Gaspar Suliansky </center>
+date: <center> 11/04/2022 </center>
+output: html_document
+---
+ 
+<style type = "text/css">
+  body{
+  font-size: 11 pt;
+  font-family: "AppleGothic";
+}
+</style>
+
+***
+
+```{r global.options, include = FALSE}
+
+knitr::opts_chunk$set(fig.align   = "center")
+
+```
+
+
+```{r setup, include = FALSE}
+
+knitr::opts_chunk$set(warning = FALSE, message = FALSE)
+
+```
+
+### 1. Load libraries
+
+``` {r message = F}
+
+library(tidyverse)
+library(readxl)
+library(ggthemes)
+
+# install.packages(c("tidyverse", "readxl", "ggthemes") if necessary
+
+```
+
+***
+
+### 2. Load, tidy and merge data
+
+```{r message = F}
+
+# Latin America (Figures 1 & 2)
+
+argentina <- read_xlsx("/Users/gasparsuliansky/Desktop/Central Banking and Monetary Policy/Final Project/Argentina data.xlsx")
+argentina <- add_column(argentina, 
+                        country = "Argentina")
+
+peru <- read_xlsx("/Users/gasparsuliansky/Desktop/Central Banking and Monetary Policy/Final Project/Peru data.xlsx")
+peru <- add_column(peru, 
+                   country = "Peru")
+
+chile <- read_xlsx("/Users/gasparsuliansky/Desktop/Central Banking and Monetary Policy/Final Project/Chile data.xlsx")
+chile <- add_column(chile,
+                    country = "Chile")
+
+latinamerica_data_1 <- full_join(full_join(argentina, peru), chile) %>% 
+  rename(`Total Deficit (% GDP)` = `total deficit`) %>% 
+  mutate(`Inflation Rate (log)` = lag(log(`inflation rate`), 1)) %>% 
+  pivot_longer(c(5, 18), 
+               names_to = "LA_Variables",
+               values_to = "LA_Values") %>% 
+  subset(select = c(year, 
+                    country,
+                    LA_Variables,
+                    LA_Values))
+latinamerica_data_1 # Figure 1
+
+latinamerica_data_2 <- full_join(full_join(argentina, peru), chile) %>% 
+  rename(`Total Deficit (% GDP)` = `total deficit`) %>% 
+  mutate(`Inflation Rate (log)` = log(`inflation rate`)) %>% 
+  subset(select = c(year, 
+                    country,
+                    `Total Deficit (% GDP)`,
+                    `Inflation Rate (log)`))
+latinamerica_data_2 # Figure 2
+
+```
+
+```{r message = F}
+
+# Euro Area (Figure 2)
+
+europe_money_supply <- read_csv("/Users/gasparsuliansky/Desktop/Central Banking and Monetary Policy/Final Project/MYAGM2EZM196N.csv")
+europe_inflation <- read_csv("/Users/gasparsuliansky/Desktop/Central Banking and Monetary Policy/Final Project/EA19CPALTT01GYM.csv")
+
+europe_data <- inner_join(europe_money_supply,
+                          europe_inflation,
+                          by = "DATE") %>% 
+  rename(`Inflation Rate` = EA19CPALTT01GYM,
+         `Money Supply` = MYAGM2EZM196N) %>% 
+  mutate(`Monetary Base` = ((`Money Supply` - first(`Money Supply`)) / first(`Money Supply`) + 100),
+         `Price Level` = ((`Inflation Rate` - first(`Inflation Rate`)) / first(`Inflation Rate`)) + 100)  %>% 
+  pivot_longer(4:5,
+               names_to = "EU_Variables",
+               values_to = "EU_Values") %>% 
+  subset(select = c(DATE,
+                     EU_Variables,
+                     EU_Values))
+europe_data # Figure 3
+
+```
+
+***
+
+### 3. Plot data
+
+&nbsp;
+
+> <font size = "3"> Figure 1 shows time series for two central economic variables: *Total Deficit* (as a % of GDP) and *Inflation Rate* (in a logarithmic scale) -- for each country from 1960 to 2017. The thin black lines showcase the 0% level rate for both variables. Figure 2 shows the same variables in form of a scatter plot to better aknowledge the correlation between the two of them. The dashed lines display the linear regression line for each country. </font>
+
+``` {r warnings = FALSE, message = FALSE, fig.align = 'center'}
+
+# Figure 1
+
+latinamerica_data_1 %>% 
+  ggplot(aes(x = year,
+             y = LA_Values,
+             linetype = LA_Variables,
+             col = country)) +
+  geom_hline(yintercept = 0,
+             col = "black",
+             size = 0.20) +
+  geom_path() +
+  scale_x_continuous(n.breaks = 20) +
+  scale_y_continuous(labels = scales::percent_format(accuracy = 1,
+                                                     scale = 1,
+                                                     big.mark = "")) +
+  facet_wrap(~ country,
+             ncol = 1) +
+  guides(col = "none") +
+  theme_base() +
+  theme(legend.position = "bottom",
+        legend.title = element_blank(),
+        text = element_text(family = "AppleGothic",
+                            colour = "black",
+                            size = 12),
+        axis.text = element_text(colour = "black"),
+        plot.caption = element_text(hjust = c(1, 0.5),
+                                    margin = margin(t = 15, r = 0, b = 0, l = 0)),
+        legend.text = element_text(family = "AppleGothic"),
+        legend.background = element_rect(linetype = "solid", 
+                                         colour = "black",
+                                         size = 0.25,
+                                         fill = "grey97"),
+        legend.margin = margin(0.10, 0.50, 0.10, 0.10, "cm"),
+        strip.text = element_text(size = 11),
+        strip.background = element_rect(fill = "grey97"),
+        panel.background = element_rect(fill = "grey97"),
+        plot.background = element_rect(fill = "grey97"),
+        legend.box.background = element_rect(fill = "grey97"),
+        legend.key = element_rect(fill = "grey97")) +
+  labs(x = "",
+       y = "",
+       caption = c("Source: Kehoe & Nicolini (2022)",
+                   "Figure 1")) +
+  scale_color_manual(values = c(Argentina = "skyblue3",
+                                Chile = "dodgerblue4",
+                                Peru = "firebrick4"))
+
+# Figure 2
+
+latinamerica_data_2 %>% 
+  ggplot(aes(x = `Total Deficit (% GDP)`,
+             y = `Inflation Rate (log)`,
+             fill = country,
+             col = country)) +
+  geom_jitter(shape = 23,
+              alpha = 9 / 10) +
+  geom_smooth(method = "lm",
+              linetype = "dashed",
+              se = F,
+              size = 0.5) +
+  facet_wrap(~ country,
+             ncol = 1) +
+  scale_x_continuous(labels = scales::percent_format(accuracy = 1,
+                                                     scale = 1,
+                                                     big.mark = "")) +
+  scale_y_continuous(limits = c(0, 10),
+                     breaks = c(0, 5, 10), 
+                     labels = scales::percent_format(accuracy = 1,
+                                                     scale = 1,
+                                                     big.mark = "")) +
+  theme_base() +
+  scale_fill_manual(values = c(Argentina = "skyblue3",
+                                Chile = "dodgerblue4",
+                                Peru = "firebrick4")) +
+  scale_color_manual(values = c(Argentina = "skyblue3",
+                               Chile = "dodgerblue4",
+                               Peru = "firebrick4")) +
+  theme(legend.position = "none",
+        text = element_text(family = "AppleGothic",
+                            colour = "black",
+                            size = 12),
+        axis.text = element_text(colour = "black"),
+        plot.caption = element_text(hjust = c(1, 0.5),
+                                    margin = margin(t = 15, r = 0, b = 0, l = 0)),
+        axis.title.x = element_text(margin = margin(t = 15, r = 0, b = 0, l = 0)),
+        axis.title.y = element_text(margin = margin(t = 0, r = 15, b = 0, l = 0)),
+        strip.text = element_text(size = 11),
+        strip.background = element_rect(fill = "grey97"),
+        panel.background = element_rect(fill = "grey97"),
+        plot.background = element_rect(fill = "grey97")) +
+  labs(caption = c("Source: Kehoe & Nicolini (2022)",
+                   "Figure 2"))
+
+```
+
+&nbsp;
+
+> <font size = "3"> Figure 3 plots the evolution of the *Monetary Base* and the general *Price Level* for the Euro Area from 1997 to 2015 -- taking the former year as base (1997 = 100). The dashed lines display the linear regression line for each variable. </font>
+
+```{r warnings = FALSE, message = FALSE, fig.align = 'center'}
+
+# Figure 3
+
+europe_data %>%
+  ggplot(aes(x = DATE,
+             y = EU_Values,
+             col = EU_Variables)) +
+  geom_line() +
+  geom_smooth(method = "lm",
+              linetype = "dashed",
+              se = F,
+              size = 0.5) +
+  scale_y_continuous(limits  = c(98, 102)) +
+  theme_base() +
+  labs(x = "",
+       y = "(1997 = 100)",
+       title = "Euro Area",
+       caption = c("Source: FRED",
+                   "Figure 3")) +
+  theme(legend.position = "bottom",
+        legend.title = element_blank(),
+        panel.grid.major = element_blank(),
+        text = element_text(family = "AppleGothic",
+                            colour = "black",
+                            size = 12),
+        axis.text = element_text(colour = "black"),
+        plot.title = element_text(hjust = 0.5,
+                                  margin = margin(t = 10, r = 0, b = 15, l = 0)),
+        plot.caption = element_text(hjust = c(1, 0.5),
+                                    margin = margin(t = 20, r = 0, b = 0, l = 0)),    
+        axis.title.y = element_text(margin = margin(t = 0, r = 15, b = 0, l = 0)),
+        panel.background = element_rect(fill = "grey97"),
+        plot.background = element_rect(fill = "grey97"),
+        legend.box.background = element_rect(fill = "grey97"),
+        legend.background = element_rect(linetype = "solid", 
+                                         colour = "black",
+                                         size = 0.25,
+                                         fill = "grey97"),
+        legend.key = element_rect(fill = "grey97")) +
+  scale_color_manual(values = c("firebrick4",
+                                "dodgerblue4"))
+
+```
